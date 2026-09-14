@@ -90,7 +90,7 @@ npm install
 
 3. Crea un archivo `.env` basado en `.env.example`:
 ```bash
-REACT_APP_API_BASE_URL=http://localhost:3000/api
+API_BASE_URL=http://localhost:3000/api
 ```
 
 ## Desarrollo
@@ -222,7 +222,7 @@ El estado se maneja con:
 ## Variables de Entorno
 
 ```bash
-REACT_APP_API_BASE_URL=http://localhost:3000/api
+API_BASE_URL=http://localhost:3000/api
 ```
 
 ## Scripts Disponibles

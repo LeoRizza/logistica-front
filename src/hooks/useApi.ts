@@ -19,7 +19,7 @@ interface ApiResponse<T> {
 }
 
 // 1. Definimos de forma estricta dónde vive tu backend y su versión
-const DEFAULT_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3000/api/v1';
+const DEFAULT_BASE_URL = process.env.API_BASE_URL || 'http://localhost:3000/api/v1';
 
 // Instancia de Axios reutilizable con interceptores
 let axiosInstance: AxiosInstance | null = null;
