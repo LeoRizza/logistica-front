@@ -1,5 +1,14 @@
-declare module '*.css';
+declare module '*.css' {
+  const content: any;
+  export default content;
+}
 
-declare module '*.scss';
+declare module '*.scss' {
+  const content: any;
+  export default content;
+}
 
-declare module '*.sass';
+declare module '*.sass' {
+  const content: any;
+  export default content;
+}
