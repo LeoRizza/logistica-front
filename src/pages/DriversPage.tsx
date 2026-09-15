@@ -6,7 +6,7 @@ import { DriverForm } from '../components/drivers/DriverForm';
 import { Modal } from '../components/common/Modal';
 import { Button } from '../components/common/Button';
 
-// La URL base se configura en useApi por defecto usando API_BASE_URL
+// La URL base se configura en useApi por defecto usando REACT_APP_API_BASE_URL
 
 export const DriversPage: React.FC = () => {
   const [drivers, setDrivers] = useState<Driver[]>([]);
