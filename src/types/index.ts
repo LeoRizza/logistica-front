@@ -105,21 +105,23 @@ export interface UnforeseeExpense {
 export interface Trip {
   id: string;
   date: string;
-  driver_id: string;
-  vehicle_id: string;
+  driver_id: string | null;
+  vehicle_id: string | null;
   client_id?: string | null;
-  bill_of_lading: string;
-  reference_number: string;
-  estimated_km: number;
+  bill_of_lading: string | null;
+  reference_number: string | null;
+  estimated_km: number | null;
   distance_km: number | null;
   km_start?: number;
   km_end?: number;
-  amount_to_pay: number;
-  estimated_cost: number;
-  per_diems_delivered: number;
+  amount_to_pay: number | null;
+  estimated_cost: number | null;
+  per_diems_delivered: number | null;
   unforesee_expenses: UnforeseeExpense[];
   fuelLogs?: FuelLog[];
-  scheduled_date: string | Date;
+  scheduled_date?: string | Date | null;
+  actual_start_date?: string | Date | null;
+  actual_end_date?: string | Date | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -127,30 +129,44 @@ export interface Trip {
     id: string;
     business_name: string;
   } | null;
+  origin?: string | null;
+  destination?: string | null;
+  status?: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+  loaded_weight_kg?: number | null;
+  net_weight_kg?: number | null;
+  rate_per_kg?: number | null;
+  load_description?: string | null;
+  invoice_number?: string | null;
+  ctg?: string | null;
 }
 
 export interface CreateTripRequest {
-  date: string;
-  driver_id: string;
-  vehicle_id: string;
-  client_id?: string;
-  bill_of_lading: string;
-  estimated_km: number;
-  km_start?: number;
-  km_end?: number;
-  amount_to_pay: number;
-  per_diems_delivered: number;
-  unforesee_expenses: UnforeseeExpense[];
+  date?: string | null;
+  driver_id?: string | null;
+  vehicle_id?: string | null;
+  client_id?: string | null;
+  bill_of_lading?: string | null;
+  reference_number?: string | null;
+  estimated_km?: number | null;
+  km_start?: number | null;
+  km_end?: number | null;
+  amount_to_pay?: number | null;
+  per_diems_delivered?: number | null;
+  unforesee_expenses?: UnforeseeExpense[];
   fuelLogs?: FuelLog[];
   is_active?: boolean;
-  origin?: string;
-  destination?: string;
+  origin?: string | null;
+  destination?: string | null;
+  scheduled_date?: string | null;
+  actual_start_date?: string | null;
+  actual_end_date?: string | null;
   status?: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
-  loaded_weight_kg?: number;
-  net_weight_kg?: number;
-  rate_per_kg?: number;
-  load_description?: string;
-  invoice_number?: string;
+  loaded_weight_kg?: number | null;
+  net_weight_kg?: number | null;
+  rate_per_kg?: number | null;
+  load_description?: string | null;
+  invoice_number?: string | null;
+  ctg?: string | null;
 }
 
 // Settlement Types

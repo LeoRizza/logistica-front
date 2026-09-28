@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Trip, Driver, Vehicle, Client, CreateTripRequest } from '../types/index';
 import { TripForm } from '../components/trips/TripForm';
 import { Modal } from '../components/common/Modal';
 import { useApi } from '../hooks/useApi';
+import { isTripComplete, getMissingFieldsLabels } from '../utils/tripUtils';
 
 export const TripsPage: React.FC = () => {
   const [trips, setTrips] = useState<Trip[]>([]);
@@ -13,11 +14,13 @@ export const TripsPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
+  const [selectedDriverId, setSelectedDriverId] = useState<string>('');
+  const [selectedClientId, setSelectedClientId] = useState<string>('');
+  const [completenessFilter, setCompletenessFilter] = useState<'all' | 'complete' | 'incomplete'>('all');
+  const [searchText, setSearchText] = useState<string>('');
 
-  // Use the API hook with default base URL
   const { post, get, put } = useApi();
 
-  // Load drivers with useCallback
   const loadDrivers = useCallback(async () => {
     try {
       const response = await get('/drivers?limit=100');
@@ -29,7 +32,6 @@ export const TripsPage: React.FC = () => {
     }
   }, [get]);
 
-  // Load vehicles with useCallback
   const loadVehicles = useCallback(async () => {
     try {
       const response = await get('/vehicles?limit=100');
@@ -41,7 +43,6 @@ export const TripsPage: React.FC = () => {
     }
   }, [get]);
 
-  // Load clients with useCallback
   const loadClients = useCallback(async () => {
     try {
       const response = await get('/clients?limit=100');
@@ -53,11 +54,10 @@ export const TripsPage: React.FC = () => {
     }
   }, [get]);
 
-  // Load trips with useCallback
   const loadTrips = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await get('/trips?limit=50');
+      const response = await get('/trips?limit=100');
       if (response && response.data) {
         setTrips(Array.isArray(response.data) ? response.data : response.data.data || []);
       }
@@ -68,7 +68,6 @@ export const TripsPage: React.FC = () => {
     }
   }, [get]);
 
-  // Load initial data on mount
   useEffect(() => {
     loadDrivers();
     loadVehicles();
@@ -79,8 +78,9 @@ export const TripsPage: React.FC = () => {
   const handleSubmit = async (formData: CreateTripRequest) => {
     try {
       setFormLoading(true);
-      const response = selectedTrip
-        ? await put(`/trips/${selectedTrip.id}`, formData)
+      const tripId = selectedTrip?.id;
+      const response = selectedTrip && tripId
+        ? await put(`/trips/${tripId}`, formData)
         : await post('/trips', formData);
 
       if (!response || !response.success) {
@@ -109,7 +109,53 @@ export const TripsPage: React.FC = () => {
     setSelectedTrip(null);
   };
 
-  // Map Prisma Trip to CreateTripRequest format for the form
+  const filteredTrips = useMemo(() => {
+    return trips.filter((trip) => {
+      if (selectedDriverId && trip.driver_id !== selectedDriverId) return false;
+      if (selectedClientId && trip.client_id !== selectedClientId) return false;
+
+      const isComplete = isTripComplete(trip);
+      if (completenessFilter === 'complete' && !isComplete) return false;
+      if (completenessFilter === 'incomplete' && isComplete) return false;
+
+      if (searchText.trim()) {
+        const searchLower = searchText.toLowerCase();
+        const reference = (trip.reference_number || '').toLowerCase();
+        const origin = (trip.origin || '').toLowerCase();
+        const destination = (trip.destination || '').toLowerCase();
+        const ctg = ((trip as any).ctg || '').toLowerCase();
+        const driver = drivers.find((d) => d.id === trip.driver_id)?.full_name.toLowerCase() || '';
+        const vehicle = vehicles.find((v) => v.id === trip.vehicle_id)?.plate.toLowerCase() || '';
+
+        return (
+          reference.includes(searchLower) ||
+          origin.includes(searchLower) ||
+          destination.includes(searchLower) ||
+          ctg.includes(searchLower) ||
+          driver.includes(searchLower) ||
+          vehicle.includes(searchLower)
+        );
+      }
+
+      return true;
+    });
+  }, [trips, selectedDriverId, selectedClientId, completenessFilter, searchText, drivers, vehicles]);
+
+  const stats = useMemo(() => {
+    const totalTrips = trips.length;
+    const completeTrips = trips.filter((t) => isTripComplete(t)).length;
+    const incompleteTrips = totalTrips - completeTrips;
+    const totalCost = trips.reduce((sum, trip) => sum + (trip.estimated_cost || 0), 0);
+    return { totalTrips, completeTrips, incompleteTrips, totalCost };
+  }, [trips]);
+
+  const handleClearFilters = () => {
+    setSelectedDriverId('');
+    setSelectedClientId('');
+    setCompletenessFilter('all');
+    setSearchText('');
+  };
+
   const mappedInitialData = selectedTrip
     ? {
         date: selectedTrip.scheduled_date
@@ -117,30 +163,36 @@ export const TripsPage: React.FC = () => {
           : new Date(selectedTrip.created_at).toISOString().split('T')[0],
         driver_id: selectedTrip.driver_id,
         vehicle_id: selectedTrip.vehicle_id,
-        client_id: selectedTrip.client_id || '',
-        bill_of_lading: selectedTrip.reference_number || selectedTrip.bill_of_lading,
-        estimated_km: selectedTrip.distance_km || selectedTrip.estimated_km,
+        client_id: selectedTrip.client_id ?? null,
+        reference_number: selectedTrip.reference_number ?? null,
+        bill_of_lading: selectedTrip.bill_of_lading ?? null,
+        estimated_km: selectedTrip.estimated_km,
         km_start: selectedTrip.km_start,
         km_end: selectedTrip.km_end,
-        amount_to_pay: selectedTrip.estimated_cost || selectedTrip.amount_to_pay,
+        amount_to_pay: selectedTrip.amount_to_pay,
         per_diems_delivered: selectedTrip.per_diems_delivered,
         unforesee_expenses: selectedTrip.unforesee_expenses || [],
         fuelLogs: selectedTrip.fuelLogs && Array.isArray(selectedTrip.fuelLogs) ? selectedTrip.fuelLogs : [],
         is_active: selectedTrip.is_active,
-        origin: (selectedTrip as any).origin,
-        destination: (selectedTrip as any).destination,
-        status: (selectedTrip as any).status,
-        loaded_weight_kg: (selectedTrip as any).loaded_weight_kg,
-        net_weight_kg: (selectedTrip as any).net_weight_kg,
-        rate_per_kg: (selectedTrip as any).rate_per_kg,
-        load_description: (selectedTrip as any).load_description || '',
-        invoice_number: (selectedTrip as any).invoice_number || '',
+        origin: selectedTrip.origin ?? null,
+        destination: selectedTrip.destination ?? null,
+        scheduled_date: selectedTrip.scheduled_date ?? null,
+        actual_start_date: selectedTrip.actual_start_date ?? null,
+        actual_end_date: selectedTrip.actual_end_date ?? null,
+        status: 'COMPLETED',
+        distance_km: selectedTrip.distance_km,
+        estimated_cost: selectedTrip.estimated_cost,
+        loaded_weight_kg: (selectedTrip as any).loaded_weight_kg ?? null,
+        net_weight_kg: (selectedTrip as any).net_weight_kg ?? null,
+        rate_per_kg: (selectedTrip as any).rate_per_kg ?? null,
+        load_description: (selectedTrip as any).load_description ?? null,
+        invoice_number: (selectedTrip as any).invoice_number ?? null,
+        ctg: (selectedTrip as any).ctg ?? null,
       }
     : undefined;
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Viajes</h1>
@@ -150,159 +202,116 @@ export const TripsPage: React.FC = () => {
           onClick={() => setShowForm(true)}
           className="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
         >
-          <svg
-            className="h-5 w-5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 4v16m8-8H4"
-            />
+          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
           Nuevo Viaje
         </button>
       </div>
 
-      {/* Trip Form Modal */}
       <Modal isOpen={showForm} onClose={handleCloseForm} title={selectedTrip ? 'Editar Viaje' : 'Cargar Nuevo Viaje'} size="xl">
-        <TripForm
-          drivers={drivers}
-          vehicles={vehicles}
-          clients={clients}
-          onSubmit={handleSubmit}
-          onCancel={handleCloseForm}
-          loading={formLoading}
-          initialData={mappedInitialData}
-        />
+        <TripForm drivers={drivers} vehicles={vehicles} clients={clients} onSubmit={handleSubmit} onCancel={handleCloseForm} loading={formLoading} initialData={mappedInitialData} />
       </Modal>
 
-      {/* Trips Table */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <p className="text-sm text-gray-600">Total Viajes</p>
+          <p className="text-2xl font-bold text-gray-900">{stats.totalTrips}</p>
+        </div>
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <p className="text-sm text-gray-600">Viajes Completos</p>
+          <p className="text-2xl font-bold text-green-600">{stats.completeTrips}</p>
+        </div>
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <p className="text-sm text-gray-600">Con Datos Pendientes</p>
+          <p className="text-2xl font-bold text-amber-600">{stats.incompleteTrips}</p>
+        </div>
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <p className="text-sm text-gray-600">Costo Total</p>
+          <p className="text-2xl font-bold text-blue-600">${stats.totalCost.toFixed(2)}</p>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-4">
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Buscar</label>
+            <input type="text" value={searchText} onChange={(e) => setSearchText(e.target.value)} placeholder="Referencia, Origen, Destino, CTG, Chofer, Vehículo..." className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Chofer</label>
+            <select value={selectedDriverId} onChange={(e) => setSelectedDriverId(e.target.value)} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="">-- Todos los choferes --</option>
+              {drivers.map((driver) => (
+                <option key={driver.id} value={driver.id}>{driver.full_name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Cliente</label>
+            <select value={selectedClientId} onChange={(e) => setSelectedClientId(e.target.value)} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="">-- Todos los clientes --</option>
+              {clients.map((client) => (
+                <option key={client.id} value={client.id}>{client.business_name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Completitud</label>
+            <select value={completenessFilter} onChange={(e) => setCompletenessFilter(e.target.value as any)} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="all">-- Todos --</option>
+              <option value="complete">Completos</option>
+              <option value="incomplete">Con Datos Pendientes</option>
+            </select>
+          </div>
+          <div className="flex items-end">
+            <button onClick={handleClearFilters} className="w-full px-4 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors">Limpiar Filtros</button>
+          </div>
+        </div>
+      </div>
+
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                  Fecha
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                  Chofer
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                  Vehículo
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                  Cliente
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                  Carta de Porte
-                </th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-600 uppercase tracking-wider">
-                  Factura
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">
-                  Distancia (KM)
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">
-                  Honorarios
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">
-                  Viáticos
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">
-                  Gastos de Ruta
-                </th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-600 uppercase tracking-wider">
-                  Acciones
-                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">Fecha</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">Chofer</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">Vehículo</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">Origen</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">Destino</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">Referencia</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">CTG</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">Factura</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-600 uppercase">Costo</th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-600 uppercase">Estado</th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-600 uppercase">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {loading ? (
-                <tr>
-                  <td colSpan={10} className="px-6 py-8 text-center">
-                    <div className="inline-block">
-                      <div className="h-8 w-8 border-4 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
-                    </div>
-                  </td>
-                </tr>
-              ) : trips.length === 0 ? (
-                <tr>
-                  <td colSpan={10} className="px-6 py-8 text-center text-gray-500">
-                    No hay viajes registrados
-                  </td>
-                </tr>
+                <tr><td colSpan={11} className="px-6 py-8 text-center"><div className="inline-block"><div className="h-8 w-8 border-4 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div></div></td></tr>
+              ) : filteredTrips.length === 0 ? (
+                <tr><td colSpan={11} className="px-6 py-8 text-center text-gray-500">No hay viajes registrados</td></tr>
               ) : (
-                trips.map((trip) => {
+                filteredTrips.map((trip) => {
                   const driver = drivers.find((d) => d.id === trip.driver_id);
                   const vehicle = vehicles.find((v) => v.id === trip.vehicle_id);
+                  const isComplete = isTripComplete(trip);
+                  const missingFields = getMissingFieldsLabels(trip);
                   return (
-                    <tr
-                      key={trip.id}
-                      className="hover:bg-gray-50 transition-colors"
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {new Date(trip.scheduled_date || trip.created_at).toLocaleDateString('es-ES')}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {driver?.full_name}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {vehicle?.plate}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {trip.client?.business_name || '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {trip.reference_number}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
-                        {(trip as any).invoice_number ? (
-                          <span className="text-gray-800 font-medium">{(trip as any).invoice_number}</span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-50 text-red-700 text-xs font-medium rounded-md border border-red-200">
-                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                            </svg>
-                            Sin Factura
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
-                        {Number(trip.distance_km || 0).toFixed(2)} km
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 font-medium">
-                        ${Number(trip.estimated_cost || 0).toFixed(2)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
-                        ${Number(trip.per_diems_delivered || 0).toFixed(2)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
-                        {Array.isArray(trip.unforesee_expenses) && trip.unforesee_expenses.length > 0 ? (
-                          <div className="flex items-center justify-end gap-2">
-                            <span className="text-gray-900 font-medium">
-                              ${trip.unforesee_expenses.reduce((sum, expense) => sum + (expense.amount || 0), 0).toFixed(2)}
-                            </span>
-                            <span className="px-2 py-0.5 bg-orange-100 text-orange-800 text-xs font-medium rounded-full">
-                              {trip.unforesee_expenses.length}
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="text-gray-400">-</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
-                        <button
-                          onClick={() => handleEditTrip(trip)}
-                          className="px-3 py-1 bg-blue-100 text-blue-700 font-medium rounded hover:bg-blue-200 transition-colors text-xs"
-                        >
-                          Editar
-                        </button>
-                      </td>
+                    <tr key={trip.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{new Date(trip.scheduled_date || trip.created_at).toLocaleDateString('es-ES')}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{driver?.full_name || '-'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{vehicle?.plate || '-'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trip.origin || '-'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trip.destination || '-'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trip.reference_number || '-'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{(trip as any).ctg || '-'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-center">{(trip as any).invoice_number ? <span className="text-gray-800 font-medium">{(trip as any).invoice_number}</span> : <span className="text-red-700 text-xs font-medium">Sin Factura</span>}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 font-medium">${Number(trip.estimated_cost || 0).toFixed(2)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-center">{isComplete ? <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">✓ Completo</span> : <span title={missingFields.join(', ')} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">⚠️ Pendiente</span>}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-center"><button onClick={() => handleEditTrip(trip)} className="px-3 py-1 bg-blue-100 text-blue-700 font-medium rounded hover:bg-blue-200 transition-colors text-xs">Editar</button></td>
                     </tr>
                   );
                 })
