@@ -54,6 +54,7 @@ export const TripForm: React.FC<TripFormProps> = ({
   const [formData, setFormData] = useState<CreateTripRequest>(defaultValues);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitLoading, setSubmitLoading] = useState(false);
+  const [driverPercentage, setDriverPercentage] = useState<number>(17);
   const [newExpense, setNewExpense] = useState<UnforeseeExpense>({
     detail: '',
     amount: 0,
@@ -67,14 +68,24 @@ export const TripForm: React.FC<TripFormProps> = ({
     if (initialData) {
       const fuelLogsData = (initialData.fuelLogs as FuelLog[]) || [];
       setFuelLogs(fuelLogsData);
+      
+      const totalRevenue = (initialData.loaded_weight_kg || 0) * (initialData.rate_per_kg || 0);
+      let calculatedPercentage = 17;
+      if (totalRevenue > 0 && (initialData.amount_to_pay || 0) > 0) {
+        calculatedPercentage = Number((((initialData.amount_to_pay || 0) / totalRevenue) * 100).toFixed(2));
+      }
+      setDriverPercentage(calculatedPercentage);
+      
       setFormData((prev) => ({
         ...defaultValues,
         ...initialData,
         fuelLogs: fuelLogsData,
+        scheduled_date: initialData.scheduled_date || initialData.date || defaultValues.scheduled_date,
       }));
     } else {
       setFormData(defaultValues);
       setFuelLogs([]);
+      setDriverPercentage(17);
     }
     setErrors({});
   }, [initialData]);
@@ -123,10 +134,28 @@ export const TripForm: React.FC<TripFormProps> = ({
       finalValue = null;
     }
 
-    setFormData((prev) => ({
-      ...prev,
-      [name]: finalValue,
-    }));
+    setFormData((prev) => {
+      const updatedData = {
+        ...prev,
+        [name]: finalValue,
+      };
+
+      // Auto-calculate amount_to_pay when loaded_weight_kg or rate_per_kg changes
+      if ((name === 'loaded_weight_kg' || name === 'rate_per_kg') && formData.driver_id) {
+        const newLoadedWeight = name === 'loaded_weight_kg' ? finalValue : (prev.loaded_weight_kg || 0);
+        const newRatePerKg = name === 'rate_per_kg' ? finalValue : (prev.rate_per_kg || 0);
+        const totalRevenue = (newLoadedWeight || 0) * (newRatePerKg || 0);
+        const calculatedAmount = Number(((totalRevenue * (driverPercentage / 100)).toFixed(2)));
+        updatedData.amount_to_pay = calculatedAmount > 0 ? calculatedAmount : null;
+      }
+
+      // Sync scheduled_date when date changes
+      if (name === 'date') {
+        updatedData.scheduled_date = finalValue;
+      }
+
+      return updatedData;
+    });
 
     if (errors[name]) {
       setErrors((prev) => {
@@ -135,6 +164,19 @@ export const TripForm: React.FC<TripFormProps> = ({
         return newErrors;
       });
     }
+  };
+
+  const handlePercentageChange = (newPercentage: number) => {
+    setDriverPercentage(newPercentage);
+    
+    // Recalculate amount_to_pay based on new percentage
+    const totalRevenue = (formData.loaded_weight_kg || 0) * (formData.rate_per_kg || 0);
+    const calculatedAmount = Number(((totalRevenue * (newPercentage / 100)).toFixed(2)));
+    
+    setFormData((prev) => ({
+      ...prev,
+      amount_to_pay: calculatedAmount > 0 ? calculatedAmount : null,
+    }));
   };
 
   const handleAddExpense = () => {
@@ -183,7 +225,10 @@ export const TripForm: React.FC<TripFormProps> = ({
       const cleanedData: CreateTripRequest = {
         ...formData,
         status: 'COMPLETED',
+        scheduled_date: formData.date || formData.scheduled_date,
       };
+
+      (cleanedData as any).actual_cost = formData.amount_to_pay;
 
       Object.keys(cleanedData).forEach((key) => {
         const value = (cleanedData as any)[key];
@@ -293,14 +338,22 @@ export const TripForm: React.FC<TripFormProps> = ({
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Monto a Pagar</label>
-              <div className="flex items-center">
-                <span className="text-gray-500 px-4 py-2">$</span>
-                <input type="number" name="amount_to_pay" value={formData.amount_to_pay ?? ''} onChange={handleChange} placeholder="0.00" step="0.01" min="0" className={`flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.amount_to_pay ? 'border-red-500' : 'border-gray-300'}`} disabled={submitLoading || loading} />
+              <div className="grid grid-cols-3 gap-2">
+                <div className="col-span-2">
+                  <div className="flex items-center">
+                    <span className="text-gray-500 px-4 py-2">$</span>
+                    <input type="number" name="amount_to_pay" value={formData.amount_to_pay ?? ''} onChange={handleChange} placeholder="0.00" step="0.01" min="0" className={`flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.amount_to_pay ? 'border-red-500' : 'border-gray-300'}`} disabled={submitLoading || loading} />
+                  </div>
+                  {errors.amount_to_pay && <p className="text-red-600 text-xs mt-1">{errors.amount_to_pay}</p>}
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">% Chofer</label>
+                  <input type="number" value={driverPercentage} onChange={(e) => handlePercentageChange(parseFloat(e.target.value) || 0)} placeholder="17" step="0.1" min="0" max="100" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" disabled={submitLoading || loading} />
+                </div>
               </div>
-              {errors.amount_to_pay && <p className="text-red-600 text-xs mt-1">{errors.amount_to_pay}</p>}
             </div>
 
-            <div>
+            <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">Viáticos Entregados</label>
               <div className="flex items-center">
                 <span className="text-gray-500 px-4 py-2">$</span>

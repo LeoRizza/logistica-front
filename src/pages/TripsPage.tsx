@@ -16,7 +16,8 @@ export const TripsPage: React.FC = () => {
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
   const [selectedDriverId, setSelectedDriverId] = useState<string>('');
   const [selectedClientId, setSelectedClientId] = useState<string>('');
-  const [completenessFilter, setCompletenessFilter] = useState<'all' | 'complete' | 'incomplete'>('all');
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
   const [searchText, setSearchText] = useState<string>('');
 
   const { post, get, put } = useApi();
@@ -114,9 +115,9 @@ export const TripsPage: React.FC = () => {
       if (selectedDriverId && trip.driver_id !== selectedDriverId) return false;
       if (selectedClientId && trip.client_id !== selectedClientId) return false;
 
-      const isComplete = isTripComplete(trip);
-      if (completenessFilter === 'complete' && !isComplete) return false;
-      if (completenessFilter === 'incomplete' && isComplete) return false;
+      const tripDate = (trip.scheduled_date || trip.created_at || '').split('T')[0];
+      if (startDate && tripDate < startDate) return false;
+      if (endDate && tripDate > endDate) return false;
 
       if (searchText.trim()) {
         const searchLower = searchText.toLowerCase();
@@ -139,20 +140,15 @@ export const TripsPage: React.FC = () => {
 
       return true;
     });
-  }, [trips, selectedDriverId, selectedClientId, completenessFilter, searchText, drivers, vehicles]);
+  }, [trips, selectedDriverId, selectedClientId, startDate, endDate, searchText, drivers, vehicles]);
 
-  const stats = useMemo(() => {
-    const totalTrips = trips.length;
-    const completeTrips = trips.filter((t) => isTripComplete(t)).length;
-    const incompleteTrips = totalTrips - completeTrips;
-    const totalCost = trips.reduce((sum, trip) => sum + (trip.estimated_cost || 0), 0);
-    return { totalTrips, completeTrips, incompleteTrips, totalCost };
-  }, [trips]);
+
 
   const handleClearFilters = () => {
     setSelectedDriverId('');
     setSelectedClientId('');
-    setCompletenessFilter('all');
+    setStartDate('');
+    setEndDate('');
     setSearchText('');
   };
 
@@ -169,7 +165,7 @@ export const TripsPage: React.FC = () => {
         estimated_km: selectedTrip.estimated_km,
         km_start: selectedTrip.km_start,
         km_end: selectedTrip.km_end,
-        amount_to_pay: selectedTrip.amount_to_pay,
+        amount_to_pay: selectedTrip.amount_to_pay ?? (selectedTrip as any).actual_cost ?? null,
         per_diems_delivered: selectedTrip.per_diems_delivered,
         unforesee_expenses: selectedTrip.unforesee_expenses || [],
         fuelLogs: selectedTrip.fuelLogs && Array.isArray(selectedTrip.fuelLogs) ? selectedTrip.fuelLogs : [],
@@ -213,24 +209,7 @@ export const TripsPage: React.FC = () => {
         <TripForm drivers={drivers} vehicles={vehicles} clients={clients} onSubmit={handleSubmit} onCancel={handleCloseForm} loading={formLoading} initialData={mappedInitialData} />
       </Modal>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <p className="text-sm text-gray-600">Total Viajes</p>
-          <p className="text-2xl font-bold text-gray-900">{stats.totalTrips}</p>
-        </div>
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <p className="text-sm text-gray-600">Viajes Completos</p>
-          <p className="text-2xl font-bold text-green-600">{stats.completeTrips}</p>
-        </div>
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <p className="text-sm text-gray-600">Con Datos Pendientes</p>
-          <p className="text-2xl font-bold text-amber-600">{stats.incompleteTrips}</p>
-        </div>
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <p className="text-sm text-gray-600">Costo Total</p>
-          <p className="text-2xl font-bold text-blue-600">${stats.totalCost.toFixed(2)}</p>
-        </div>
-      </div>
+
 
       <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-4">
         <div className="flex flex-col md:flex-row gap-4">
@@ -257,12 +236,12 @@ export const TripsPage: React.FC = () => {
             </select>
           </div>
           <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Completitud</label>
-            <select value={completenessFilter} onChange={(e) => setCompletenessFilter(e.target.value as any)} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-              <option value="all">-- Todos --</option>
-              <option value="complete">Completos</option>
-              <option value="incomplete">Con Datos Pendientes</option>
-            </select>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Fecha Desde</label>
+            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Fecha Hasta</label>
+            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
           <div className="flex items-end">
             <button onClick={handleClearFilters} className="w-full px-4 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors">Limpiar Filtros</button>
