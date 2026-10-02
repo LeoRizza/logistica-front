@@ -140,15 +140,6 @@ export const TripForm: React.FC<TripFormProps> = ({
         [name]: finalValue,
       };
 
-      // Auto-calculate amount_to_pay when loaded_weight_kg or rate_per_kg changes
-      if ((name === 'loaded_weight_kg' || name === 'rate_per_kg') && formData.driver_id) {
-        const newLoadedWeight = name === 'loaded_weight_kg' ? finalValue : (prev.loaded_weight_kg || 0);
-        const newRatePerKg = name === 'rate_per_kg' ? finalValue : (prev.rate_per_kg || 0);
-        const totalRevenue = (newLoadedWeight || 0) * (newRatePerKg || 0);
-        const calculatedAmount = Number(((totalRevenue * (driverPercentage / 100)).toFixed(2)));
-        updatedData.amount_to_pay = calculatedAmount > 0 ? calculatedAmount : null;
-      }
-
       // Sync scheduled_date when date changes
       if (name === 'date') {
         updatedData.scheduled_date = finalValue;
@@ -168,11 +159,11 @@ export const TripForm: React.FC<TripFormProps> = ({
 
   const handlePercentageChange = (newPercentage: number) => {
     setDriverPercentage(newPercentage);
-    
-    // Recalculate amount_to_pay based on new percentage
+  };
+
+  const applyPercentageCalculation = () => {
     const totalRevenue = (formData.loaded_weight_kg || 0) * (formData.rate_per_kg || 0);
-    const calculatedAmount = Number(((totalRevenue * (newPercentage / 100)).toFixed(2)));
-    
+    const calculatedAmount = Number(((totalRevenue * (driverPercentage / 100)).toFixed(2)));
     setFormData((prev) => ({
       ...prev,
       amount_to_pay: calculatedAmount > 0 ? calculatedAmount : null,
@@ -336,21 +327,27 @@ export const TripForm: React.FC<TripFormProps> = ({
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Monto a Pagar</label>
-              <div className="grid grid-cols-3 gap-2">
-                <div className="col-span-2">
-                  <div className="flex items-center">
-                    <span className="text-gray-500 px-4 py-2">$</span>
-                    <input type="number" name="amount_to_pay" value={formData.amount_to_pay ?? ''} onChange={handleChange} placeholder="0.00" step="0.01" min="0" className={`flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.amount_to_pay ? 'border-red-500' : 'border-gray-300'}`} disabled={submitLoading || loading} />
-                  </div>
-                  {errors.amount_to_pay && <p className="text-red-600 text-xs mt-1">{errors.amount_to_pay}</p>}
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Monto a Pagar (Honorarios Chofer)</label>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                {/* Input Monto */}
+                <div className={`flex-1 flex items-center border rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500 ${errors.amount_to_pay ? 'border-red-500' : 'border-gray-300'} bg-white`}>
+                  <span className="text-gray-500 px-3 bg-gray-50 border-r border-gray-300 h-full flex items-center min-h-[42px]">$</span>
+                  <input type="number" name="amount_to_pay" value={formData.amount_to_pay ?? ''} onChange={handleChange} placeholder="0.00" step="0.01" min="0" className="flex-1 px-3 py-2 focus:outline-none w-full" disabled={submitLoading || loading} />
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">% Chofer</label>
-                  <input type="number" value={driverPercentage} onChange={(e) => handlePercentageChange(parseFloat(e.target.value) || 0)} placeholder="17" step="0.1" min="0" max="100" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" disabled={submitLoading || loading} />
+                {/* Input Porcentaje y Botón Aplicar */}
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500 bg-white">
+                    <input type="number" value={driverPercentage} onChange={(e) => handlePercentageChange(parseFloat(e.target.value) || 0)} placeholder="17" step="0.1" min="0" max="100" className="w-16 px-2 py-2 text-center focus:outline-none min-h-[42px]" disabled={submitLoading || loading} />
+                    <span className="text-gray-500 px-2 bg-gray-50 border-l border-gray-300 h-full flex items-center min-h-[42px] text-sm font-medium">%</span>
+                  </div>
+                  <button type="button" onClick={applyPercentageCalculation} className="px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg font-medium transition-colors min-h-[42px] whitespace-nowrap text-sm flex items-center gap-1 shadow-sm" disabled={submitLoading || loading}>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                    Aplicar %
+                  </button>
                 </div>
               </div>
+              {errors.amount_to_pay && <p className="text-red-600 text-xs mt-1">{errors.amount_to_pay}</p>}
             </div>
 
             <div className="md:col-span-2">

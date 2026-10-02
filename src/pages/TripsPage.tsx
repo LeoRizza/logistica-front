@@ -260,7 +260,6 @@ export const TripsPage: React.FC = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">Origen</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">Destino</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">Referencia</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">CTG</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">Factura</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-600 uppercase">Costo</th>
                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-600 uppercase">Estado</th>
@@ -269,9 +268,9 @@ export const TripsPage: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-gray-200">
               {loading ? (
-                <tr><td colSpan={11} className="px-6 py-8 text-center"><div className="inline-block"><div className="h-8 w-8 border-4 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div></div></td></tr>
+                <tr><td colSpan={10} className="px-6 py-8 text-center"><div className="inline-block"><div className="h-8 w-8 border-4 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div></div></td></tr>
               ) : filteredTrips.length === 0 ? (
-                <tr><td colSpan={11} className="px-6 py-8 text-center text-gray-500">No hay viajes registrados</td></tr>
+                <tr><td colSpan={10} className="px-6 py-8 text-center text-gray-500">No hay viajes registrados</td></tr>
               ) : (
                 filteredTrips.map((trip) => {
                   const driver = drivers.find((d) => d.id === trip.driver_id);
@@ -286,7 +285,6 @@ export const TripsPage: React.FC = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trip.origin || '-'}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trip.destination || '-'}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trip.reference_number || '-'}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{(trip as any).ctg || '-'}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-center">{(trip as any).invoice_number ? <span className="text-gray-800 font-medium">{(trip as any).invoice_number}</span> : <span className="text-red-700 text-xs font-medium">Sin Factura</span>}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 font-medium">${Number(trip.estimated_cost || 0).toFixed(2)}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-center">{isComplete ? <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">✓ Completo</span> : <span title={missingFields.join(', ')} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">⚠️ Pendiente</span>}</td>
