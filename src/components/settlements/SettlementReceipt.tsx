@@ -104,7 +104,7 @@ export const SettlementReceipt: React.FC<SettlementReceiptProps> = ({
                     <td className="px-2 py-2 text-gray-700">{trip.date}</td>
                     <td className="px-2 py-2 text-gray-700 font-mono">{trip.reference_number}</td>
                     <td className="px-2 py-2 text-right text-gray-900 font-semibold">
-                      ${Number(trip.estimated_cost || 0).toFixed(2)}
+                      ${Number((trip as any).amount_to_pay ?? (trip as any).actual_cost ?? 0).toFixed(2)}
                     </td>
                     <td className="px-2 py-2 text-right text-red-600">
                       -${Number(trip.per_diems_delivered || 0).toFixed(2)}
