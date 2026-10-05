@@ -3,7 +3,21 @@ import { Trip, Driver, Vehicle, Client, CreateTripRequest } from '../types/index
 import { TripForm } from '../components/trips/TripForm';
 import { Modal } from '../components/common/Modal';
 import { useApi } from '../hooks/useApi';
-import { isTripComplete, getMissingFieldsLabels } from '../utils/tripUtils';
+
+const checkTripCompletion = (trip: any): { isComplete: boolean; missing: string[] } => {
+  const missing: string[] = [];
+  if (!trip.origin?.trim()) missing.push('Origen');
+  if (!trip.destination?.trim()) missing.push('Destino');
+  if (!trip.scheduled_date && !trip.date) missing.push('Fecha');
+  if (!trip.distance_km || trip.distance_km <= 0) missing.push('Distancia');
+  if (!trip.loaded_weight_kg || trip.loaded_weight_kg <= 0) missing.push('Kilos Cargados');
+  if (!trip.net_weight_kg || trip.net_weight_kg <= 0) missing.push('Kilos Netos');
+  if (!trip.rate_per_kg || trip.rate_per_kg <= 0) missing.push('Tarifa');
+  if (!trip.invoice_number?.trim()) missing.push('Factura');
+  const hasPay = (trip.amount_to_pay && trip.amount_to_pay > 0) || (trip.actual_cost && trip.actual_cost > 0);
+  if (!hasPay) missing.push('Monto a Pagar');
+  return { isComplete: missing.length === 0, missing };
+};
 
 export const TripsPage: React.FC = () => {
   const [trips, setTrips] = useState<Trip[]>([]);
@@ -275,8 +289,7 @@ export const TripsPage: React.FC = () => {
                 filteredTrips.map((trip) => {
                   const driver = drivers.find((d) => d.id === trip.driver_id);
                   const vehicle = vehicles.find((v) => v.id === trip.vehicle_id);
-                  const isComplete = isTripComplete(trip);
-                  const missingFields = getMissingFieldsLabels(trip);
+                  const { isComplete, missing: missingFields } = checkTripCompletion(trip);
                   return (
                     <tr key={trip.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{new Date(trip.scheduled_date || trip.created_at).toLocaleDateString('es-ES')}</td>
