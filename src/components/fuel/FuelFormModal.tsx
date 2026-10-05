@@ -36,30 +36,7 @@ export const FuelFormModal: React.FC<FuelFormModalProps> = ({
 
   const { post, get, put } = useApi();
 
-  // Load fuel history when modal opens with a vehicle
-  useEffect(() => {
-    if (vehicle && isOpen) {
-      loadFuelHistory();
-    }
-  }, [vehicle, isOpen, loadFuelHistory]);
-
-  // Reset form when modal closes or vehicle changes
-  useEffect(() => {
-    if (!isOpen) {
-      setOdometerReading('');
-      setLitersLoaded('');
-      setTotalCostInput('');
-      setStationName('');
-      setNotes('');
-      setError('');
-      setLastOdometer(null);
-      setFuelDate(new Date().toISOString().split('T')[0]);
-      setEditingLogId(null);
-      setStartDate('');
-      setEndDate('');
-    }
-  }, [isOpen]);
-
+  // 1. PRIMERO DEFINIMOS LA FUNCIÓN
   // Load fuel history from API
   const loadFuelHistory = React.useCallback(async () => {
     if (!vehicle) return;
@@ -83,6 +60,31 @@ export const FuelFormModal: React.FC<FuelFormModalProps> = ({
       setHistoryLoading(false);
     }
   }, [vehicle, get]);
+
+  // 2. DESPUÉS LA USAMOS EN LOS EFECTOS
+  // Load fuel history when modal opens with a vehicle
+  useEffect(() => {
+    if (vehicle && isOpen) {
+      loadFuelHistory();
+    }
+  }, [vehicle, isOpen, loadFuelHistory]);
+
+  // Reset form when modal closes or vehicle changes
+  useEffect(() => {
+    if (!isOpen) {
+      setOdometerReading('');
+      setLitersLoaded('');
+      setTotalCostInput('');
+      setStationName('');
+      setNotes('');
+      setError('');
+      setLastOdometer(null);
+      setFuelDate(new Date().toISOString().split('T')[0]);
+      setEditingLogId(null);
+      setStartDate('');
+      setEndDate('');
+    }
+  }, [isOpen]);
 
   // Handle edit click
   const handleEditClick = (log: FuelLog) => {
