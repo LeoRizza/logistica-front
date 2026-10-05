@@ -20,6 +20,7 @@ export const FuelFormModal: React.FC<FuelFormModalProps> = ({
 }) => {
   const [loading, setLoading] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [submitLoading, setSubmitLoading] = useState(false);
   const [odometerReading, setOdometerReading] = useState('');
   const [litersLoaded, setLitersLoaded] = useState('');
   const [totalCostInput, setTotalCostInput] = useState('');
@@ -31,40 +32,16 @@ export const FuelFormModal: React.FC<FuelFormModalProps> = ({
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [fuelDate, setFuelDate] = useState(new Date().toISOString().split('T')[0]);
+  const [editingLogId, setEditingLogId] = useState<string | null>(null);
 
-  const { post, get } = useApi();
+  const { post, get, put } = useApi();
 
-  // Load fuel history and last odometer reading when vehicle is selected
+  // Load fuel history when modal opens with a vehicle
   useEffect(() => {
     if (vehicle && isOpen) {
-      const fetchFuelHistory = async () => {
-        try {
-          setHistoryLoading(true);
-          // Increased limit to 100 to fetch more history for context-aware filtering
-          const response = await get(`/fuel/vehicle/${vehicle.id}?limit=100`);
-          
-          // Extract logs from response - handle both formats
-          const logs: FuelLog[] = response?.data?.data || response?.data || [];
-          
-          if (Array.isArray(logs) && logs.length > 0) {
-            setFuelHistory(logs);
-            // Always set lastOdometer from the most recent entry (index 0)
-            setLastOdometer(logs[0].odometer_reading);
-          } else {
-            setFuelHistory([]);
-            setLastOdometer(null);
-          }
-        } catch (err) {
-          console.error('Error fetching fuel history:', err);
-          setFuelHistory([]);
-          setLastOdometer(null);
-        } finally {
-          setHistoryLoading(false);
-        }
-      };
-      fetchFuelHistory();
+      loadFuelHistory();
     }
-  }, [vehicle, isOpen, get]);
+  }, [vehicle, isOpen, loadFuelHistory]);
 
   // Reset form when modal closes or vehicle changes
   useEffect(() => {
@@ -77,8 +54,59 @@ export const FuelFormModal: React.FC<FuelFormModalProps> = ({
       setError('');
       setLastOdometer(null);
       setFuelDate(new Date().toISOString().split('T')[0]);
+      setEditingLogId(null);
+      setStartDate('');
+      setEndDate('');
     }
   }, [isOpen]);
+
+  // Load fuel history from API
+  const loadFuelHistory = React.useCallback(async () => {
+    if (!vehicle) return;
+    try {
+      setHistoryLoading(true);
+      const response = await get(`/fuel/vehicle/${vehicle.id}?limit=100`);
+      const logs: FuelLog[] = response?.data?.data || response?.data || [];
+      
+      if (Array.isArray(logs) && logs.length > 0) {
+        setFuelHistory(logs);
+        setLastOdometer(logs[0].odometer_reading);
+      } else {
+        setFuelHistory([]);
+        setLastOdometer(null);
+      }
+    } catch (err) {
+      console.error('Error fetching fuel history:', err);
+      setFuelHistory([]);
+      setLastOdometer(null);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [vehicle, get]);
+
+  // Handle edit click
+  const handleEditClick = (log: FuelLog) => {
+    setEditingLogId(log.id);
+    setFuelDate(log.created_at ? new Date(log.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
+    setOdometerReading(log.odometer_reading?.toString() || '');
+    setLitersLoaded(log.liters_loaded?.toString() || '');
+    setTotalCostInput(log.total_cost?.toString() || '');
+    setStationName(log.station_name || '');
+    setNotes(log.notes || '');
+    setError('');
+  };
+
+  // Handle cancel edit
+  const handleCancelEdit = () => {
+    setEditingLogId(null);
+    setFuelDate(new Date().toISOString().split('T')[0]);
+    setOdometerReading('');
+    setLitersLoaded('');
+    setTotalCostInput('');
+    setStationName('');
+    setNotes('');
+    setError('');
+  };
 
   // Calculate price per liter dynamically
   const calculatePricePerLiter = (): number => {
@@ -157,9 +185,9 @@ export const FuelFormModal: React.FC<FuelFormModalProps> = ({
     }
 
     try {
-      setLoading(true);
+      setSubmitLoading(true);
 
-      const response = await post('/fuel', {
+      const payload = {
         vehicle_id: vehicle.id,
         odometer_reading: odometer,
         liters_loaded: liters,
@@ -167,31 +195,45 @@ export const FuelFormModal: React.FC<FuelFormModalProps> = ({
         station_name: stationName.trim() || undefined,
         notes: notes.trim() || undefined,
         trip_id: trip?.id || undefined,
-        date: fuelDate,
-      });
+        created_at: new Date(fuelDate).toISOString(),
+      };
 
-      if (!response?.success) {
-        throw new Error(response?.message || 'Error creating fuel log');
+      if (editingLogId) {
+        // Update existing fuel log
+        const response = await put(`/fuel/${editingLogId}`, payload);
+        if (!response?.success) {
+          throw new Error(response?.message || 'Error updating fuel log');
+        }
+      } else {
+        // Create new fuel log
+        const response = await post('/fuel', {
+          ...payload,
+          date: fuelDate,
+        });
+        if (!response?.success) {
+          throw new Error(response?.message || 'Error creating fuel log');
+        }
       }
 
-      // Reset form and close modal
-      setOdometerReading('');
-      setLitersLoaded('');
-      setTotalCostInput('');
-      setStationName('');
-      setNotes('');
-      setError('');
+      // Reload history
+      if (!editingLogId) {
+        // For new records, close modal and reload
+        handleCancelEdit();
+        onClose();
+      } else {
+        // For edits, just reload and cancel edit mode
+        handleCancelEdit();
+        await loadFuelHistory();
+      }
 
       if (onSuccess) {
         onSuccess();
       }
-
-      onClose();
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to create fuel log';
+      const errorMessage = err instanceof Error ? err.message : 'Failed to save fuel log';
       setError(errorMessage);
     } finally {
-      setLoading(false);
+      setSubmitLoading(false);
     }
   };
 
@@ -207,7 +249,7 @@ export const FuelFormModal: React.FC<FuelFormModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`Cargar Combustible - ${vehicle.plate}`}
+      title={editingLogId ? `Editar Carga de Combustible - ${vehicle.plate}` : `Cargar Combustible - ${vehicle.plate}`}
       size="xl"
     >
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-h-[80vh] overflow-y-auto">
@@ -231,7 +273,7 @@ export const FuelFormModal: React.FC<FuelFormModalProps> = ({
             value={fuelDate}
             onChange={(e) => setFuelDate(e.target.value)}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
-            disabled={loading}
+            disabled={loading || submitLoading}
           />
         </div>
 
@@ -249,7 +291,7 @@ export const FuelFormModal: React.FC<FuelFormModalProps> = ({
             onChange={(e) => setOdometerReading(e.target.value)}
             placeholder="Ej: 125450.50"
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
-            disabled={loading}
+            disabled={loading || submitLoading}
           />
           {lastOdometer !== null && (
             <p className="text-xs text-gray-500 mt-2">
@@ -272,7 +314,7 @@ export const FuelFormModal: React.FC<FuelFormModalProps> = ({
             onChange={(e) => setLitersLoaded(e.target.value)}
             placeholder="Ej: 150.50"
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
-            disabled={loading}
+            disabled={loading || submitLoading}
           />
         </div>
 
@@ -290,7 +332,7 @@ export const FuelFormModal: React.FC<FuelFormModalProps> = ({
             onChange={(e) => setTotalCostInput(e.target.value)}
             placeholder="Ej: 12800.50"
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
-            disabled={loading}
+            disabled={loading || submitLoading}
           />
           <p className="text-xs text-gray-500 mt-2">
             Precio/L = ${pricePerLiter.toFixed(2)} (calculado automáticamente)
@@ -318,7 +360,7 @@ export const FuelFormModal: React.FC<FuelFormModalProps> = ({
             onChange={(e) => setStationName(e.target.value)}
             placeholder="Ej: YPF, Shell, Axion..."
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
-            disabled={loading}
+            disabled={loading || submitLoading}
           />
         </div>
 
@@ -333,29 +375,40 @@ export const FuelFormModal: React.FC<FuelFormModalProps> = ({
             placeholder="Ej: Combustible premium, etc."
             rows={3}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition resize-none"
-            disabled={loading}
+            disabled={loading || submitLoading}
           />
         </div>
 
         {/* Action Buttons */}
         <div className="flex gap-3 pt-4">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={loading}
-            className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Cancelar
-          </button>
+          {editingLogId ? (
+            <button
+              type="button"
+              onClick={handleCancelEdit}
+              disabled={submitLoading || loading}
+              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Cancelar Edición
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={submitLoading || loading}
+              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Cancelar
+            </button>
+          )}
           <button
             type="submit"
-            disabled={loading}
+            disabled={submitLoading || loading}
             className="flex-1 px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
-            {loading ? (
+            {submitLoading ? (
               <>
                 <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                Guardando...
+                {editingLogId ? 'Actualizando...' : 'Guardando...'}
               </>
             ) : (
               <>
@@ -372,7 +425,7 @@ export const FuelFormModal: React.FC<FuelFormModalProps> = ({
                     d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
                   />
                 </svg>
-                Guardar
+                {editingLogId ? 'Actualizar' : 'Guardar'}
               </>
             )}
           </button>
@@ -436,6 +489,7 @@ export const FuelFormModal: React.FC<FuelFormModalProps> = ({
                       <th className="px-3 py-2 text-right font-medium text-gray-700">Precio/L</th>
                       <th className="px-3 py-2 text-right font-medium text-gray-700">Total</th>
                       <th className="px-3 py-2 text-right font-medium text-gray-700">Rendimiento</th>
+                      <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
@@ -475,6 +529,16 @@ export const FuelFormModal: React.FC<FuelFormModalProps> = ({
                             ) : (
                               <span className="text-gray-400">-</span>
                             )}
+                          </td>
+                          <td className="px-2 py-2 text-right">
+                            <button
+                              type="button"
+                              onClick={() => handleEditClick(log)}
+                              className="text-blue-600 hover:text-blue-800 font-medium text-xs transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              disabled={submitLoading || loading}
+                            >
+                              Editar
+                            </button>
                           </td>
                         </tr>
                       );
