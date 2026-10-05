@@ -261,7 +261,7 @@ export const TripsPage: React.FC = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">Destino</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">Referencia</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">Factura</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-600 uppercase">Costo</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-600 uppercase">Ganancia Neta</th>
                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-600 uppercase">Estado</th>
                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-600 uppercase">Acciones</th>
               </tr>
@@ -286,7 +286,21 @@ export const TripsPage: React.FC = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trip.destination || '-'}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trip.reference_number || '-'}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-center">{(trip as any).invoice_number ? <span className="text-gray-800 font-medium">{(trip as any).invoice_number}</span> : <span className="text-red-700 text-xs font-medium">Sin Factura</span>}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 font-medium">${Number(trip.estimated_cost || 0).toFixed(2)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium">
+{(() => {
+const revenue = Number(trip.estimated_cost) || 0;
+const driverPay = Number((trip as any).amount_to_pay ?? (trip as any).actual_cost ?? 0);
+const perDiems = Number(trip.per_diems_delivered) || 0;
+const expenses = (trip.unforesee_expenses || []).reduce((sum: number, exp: any) => sum + (Number(exp.amount) || 0), 0);
+const netProfit = revenue - (driverPay + perDiems + expenses);
+const isPositive = netProfit >= 0;
+return (
+<span className={isPositive ? 'text-emerald-600' : 'text-red-600'}>
+{isPositive ? '' : '-'}${Math.abs(netProfit).toFixed(2)}
+</span>
+);
+})()}
+</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-center">{isComplete ? <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">✓ Completo</span> : <span title={missingFields.join(', ')} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">⚠️ Pendiente</span>}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-center"><button onClick={() => handleEditTrip(trip)} className="px-3 py-1 bg-blue-100 text-blue-700 font-medium rounded hover:bg-blue-200 transition-colors text-xs">Editar</button></td>
                     </tr>
