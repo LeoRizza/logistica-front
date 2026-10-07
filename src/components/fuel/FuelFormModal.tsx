@@ -90,7 +90,7 @@ export const FuelFormModal: React.FC<FuelFormModalProps> = ({
   const handleEditClick = (log: FuelLog) => {
     setEditingLogId(log.id);
     setFuelDate(log.created_at ? new Date(log.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
-    setOdometerReading(log.odometer_reading?.toString() || '');
+    setOdometerReading(log.odometer_reading ? log.odometer_reading.toString() : '');
     setLitersLoaded(log.liters_loaded?.toString() || '');
     setTotalCostInput(log.total_cost?.toString() || '');
     setStationName(log.station_name || '');
@@ -152,11 +152,6 @@ export const FuelFormModal: React.FC<FuelFormModalProps> = ({
       return;
     }
 
-    if (!odometerReading.trim()) {
-      setError('Odometer reading is required');
-      return;
-    }
-
     if (!litersLoaded.trim()) {
       setError('Liters loaded is required');
       return;
@@ -167,12 +162,12 @@ export const FuelFormModal: React.FC<FuelFormModalProps> = ({
       return;
     }
 
-    const odometer = parseFloat(odometerReading);
+    const odometer = odometerReading.trim() !== '' ? parseFloat(odometerReading) : null;
     const liters = parseFloat(litersLoaded);
     const cost = parseFloat(totalCostInput);
 
-    if (isNaN(odometer) || odometer < 0) {
-      setError('Odometer reading must be a valid non-negative number');
+    if (odometer !== null && (isNaN(odometer) || odometer < 0)) {
+      setError('El odómetro debe ser un número positivo');
       return;
     }
 
@@ -282,7 +277,7 @@ export const FuelFormModal: React.FC<FuelFormModalProps> = ({
         {/* Odometer Reading */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Lectura del Odómetro (km)
+            Lectura del Odómetro (km) <span className="text-gray-500 font-normal">(Opcional)</span>
           </label>
           <input
             type="number"
@@ -291,7 +286,7 @@ export const FuelFormModal: React.FC<FuelFormModalProps> = ({
             min="0"
             value={odometerReading}
             onChange={(e) => setOdometerReading(e.target.value)}
-            placeholder="Ej: 125450.50"
+            placeholder="Ej: 125450.50 (opcional)"
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
             disabled={loading || submitLoading}
           />
@@ -512,7 +507,7 @@ export const FuelFormModal: React.FC<FuelFormModalProps> = ({
                             })}
                           </td>
                           <td className="px-3 py-2 text-right text-gray-900 font-medium">
-                            {log.odometer_reading.toFixed(2)} km
+                            {log.odometer_reading ? `${log.odometer_reading.toFixed(2)} km` : '-'}
                           </td>
                           <td className="px-3 py-2 text-right text-gray-900">
                             {log.liters_loaded.toFixed(2)} L

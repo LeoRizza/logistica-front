@@ -160,7 +160,7 @@ export const VehicleTable: React.FC<VehicleTableProps> = ({
 
   return (
     <Table
-      columns={[...columns, actionColumn]}
+      columns={[actionColumn, ...columns]}
       data={vehicles}
       keyExtractor={(item) => item.id}
       loading={loading}
