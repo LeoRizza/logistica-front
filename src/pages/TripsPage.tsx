@@ -168,37 +168,37 @@ export const TripsPage: React.FC = () => {
 
   const mappedInitialData = selectedTrip
     ? {
-        date: selectedTrip.scheduled_date
-          ? new Date(selectedTrip.scheduled_date).toISOString().split('T')[0]
-          : new Date(selectedTrip.created_at).toISOString().split('T')[0],
-        driver_id: selectedTrip.driver_id,
-        vehicle_id: selectedTrip.vehicle_id,
-        client_id: selectedTrip.client_id ?? null,
-        reference_number: selectedTrip.reference_number ?? null,
-        bill_of_lading: selectedTrip.bill_of_lading ?? null,
-        estimated_km: selectedTrip.estimated_km,
-        km_start: selectedTrip.km_start,
-        km_end: selectedTrip.km_end,
-        amount_to_pay: selectedTrip.amount_to_pay ?? (selectedTrip as any).actual_cost ?? null,
-        per_diems_delivered: selectedTrip.per_diems_delivered,
-        unforesee_expenses: selectedTrip.unforesee_expenses || [],
-        fuelLogs: selectedTrip.fuelLogs && Array.isArray(selectedTrip.fuelLogs) ? selectedTrip.fuelLogs : [],
-        is_active: selectedTrip.is_active,
-        origin: selectedTrip.origin ?? null,
-        destination: selectedTrip.destination ?? null,
-        scheduled_date: selectedTrip.scheduled_date ?? null,
-        actual_start_date: selectedTrip.actual_start_date ?? null,
-        actual_end_date: selectedTrip.actual_end_date ?? null,
-        status: 'COMPLETED',
-        distance_km: selectedTrip.distance_km,
-        estimated_cost: selectedTrip.estimated_cost,
-        loaded_weight_kg: (selectedTrip as any).loaded_weight_kg ?? null,
-        net_weight_kg: (selectedTrip as any).net_weight_kg ?? null,
-        rate_per_kg: (selectedTrip as any).rate_per_kg ?? null,
-        load_description: (selectedTrip as any).load_description ?? null,
-        invoice_number: (selectedTrip as any).invoice_number ?? null,
-        ctg: (selectedTrip as any).ctg ?? null,
-      }
+      date: selectedTrip.scheduled_date
+        ? new Date(selectedTrip.scheduled_date).toISOString().split('T')[0]
+        : new Date(selectedTrip.created_at).toISOString().split('T')[0],
+      driver_id: selectedTrip.driver_id,
+      vehicle_id: selectedTrip.vehicle_id,
+      client_id: selectedTrip.client_id ?? null,
+      reference_number: selectedTrip.reference_number ?? null,
+      bill_of_lading: selectedTrip.bill_of_lading ?? null,
+      estimated_km: selectedTrip.estimated_km,
+      km_start: selectedTrip.km_start,
+      km_end: selectedTrip.km_end,
+      amount_to_pay: selectedTrip.amount_to_pay ?? (selectedTrip as any).actual_cost ?? null,
+      per_diems_delivered: selectedTrip.per_diems_delivered,
+      unforesee_expenses: selectedTrip.unforesee_expenses || [],
+      fuelLogs: selectedTrip.fuelLogs && Array.isArray(selectedTrip.fuelLogs) ? selectedTrip.fuelLogs : [],
+      is_active: selectedTrip.is_active,
+      origin: selectedTrip.origin ?? null,
+      destination: selectedTrip.destination ?? null,
+      scheduled_date: selectedTrip.scheduled_date ?? null,
+      actual_start_date: selectedTrip.actual_start_date ?? null,
+      actual_end_date: selectedTrip.actual_end_date ?? null,
+      status: 'COMPLETED',
+      distance_km: selectedTrip.distance_km,
+      estimated_cost: selectedTrip.estimated_cost,
+      loaded_weight_kg: (selectedTrip as any).loaded_weight_kg ?? null,
+      net_weight_kg: (selectedTrip as any).net_weight_kg ?? null,
+      rate_per_kg: (selectedTrip as any).rate_per_kg ?? null,
+      load_description: (selectedTrip as any).load_description ?? null,
+      invoice_number: (selectedTrip as any).invoice_number ?? null,
+      ctg: (selectedTrip as any).ctg ?? null,
+    }
     : undefined;
 
   return (
@@ -268,6 +268,7 @@ export const TripsPage: React.FC = () => {
           <table className="w-full">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-600 uppercase">Acciones</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">Fecha</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">Chofer</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">Vehículo</th>
@@ -277,7 +278,6 @@ export const TripsPage: React.FC = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">Factura</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-600 uppercase">Ganancia Neta</th>
                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-600 uppercase">Estado</th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-600 uppercase">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -292,6 +292,7 @@ export const TripsPage: React.FC = () => {
                   const { isComplete, missing: missingFields } = checkTripCompletion(trip);
                   return (
                     <tr key={trip.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-center"><button onClick={() => handleEditTrip(trip)} className="px-3 py-1 bg-blue-100 text-blue-700 font-medium rounded hover:bg-blue-200 transition-colors text-xs">Editar</button></td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{new Date(trip.scheduled_date || trip.created_at).toLocaleDateString('es-ES')}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{driver?.full_name || '-'}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{vehicle?.plate || '-'}</td>
@@ -300,22 +301,21 @@ export const TripsPage: React.FC = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trip.reference_number || '-'}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-center">{(trip as any).invoice_number ? <span className="text-gray-800 font-medium">{(trip as any).invoice_number}</span> : <span className="text-red-700 text-xs font-medium">Sin Factura</span>}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium">
-{(() => {
-const revenue = Number(trip.estimated_cost) || 0;
-const driverPay = Number((trip as any).amount_to_pay ?? (trip as any).actual_cost ?? 0);
-const perDiems = Number(trip.per_diems_delivered) || 0;
-const expenses = (trip.unforesee_expenses || []).reduce((sum: number, exp: any) => sum + (Number(exp.amount) || 0), 0);
-const netProfit = revenue - (driverPay + perDiems + expenses);
-const isPositive = netProfit >= 0;
-return (
-<span className={isPositive ? 'text-emerald-600' : 'text-red-600'}>
-{isPositive ? '' : '-'}${Math.abs(netProfit).toFixed(2)}
-</span>
-);
-})()}
-</td>
+                        {(() => {
+                          const revenue = Number(trip.estimated_cost) || 0;
+                          const driverPay = Number((trip as any).amount_to_pay ?? (trip as any).actual_cost ?? 0);
+                          const perDiems = Number(trip.per_diems_delivered) || 0;
+                          const expenses = (trip.unforesee_expenses || []).reduce((sum: number, exp: any) => sum + (Number(exp.amount) || 0), 0);
+                          const netProfit = revenue - (driverPay + perDiems + expenses);
+                          const isPositive = netProfit >= 0;
+                          return (
+                            <span className={isPositive ? 'text-emerald-600' : 'text-red-600'}>
+                              {isPositive ? '' : '-'}${Math.abs(netProfit).toFixed(2)}
+                            </span>
+                          );
+                        })()}
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-center">{isComplete ? <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">✓ Completo</span> : <span title={missingFields.join(', ')} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">⚠️ Pendiente</span>}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-center"><button onClick={() => handleEditTrip(trip)} className="px-3 py-1 bg-blue-100 text-blue-700 font-medium rounded hover:bg-blue-200 transition-colors text-xs">Editar</button></td>
                     </tr>
                   );
                 })
