@@ -19,7 +19,7 @@ export const DriversPage: React.FC = () => {
   useEffect(() => {
     const fetchDrivers = async () => {
       try {
-        const response = await get<PaginatedResponse<Driver>>('/drivers');
+        const response = await get<PaginatedResponse<Driver>>('/drivers?limit=100');
         if (response && response.data) {
           // response.data es PaginatedResponse<Driver>, extraemos el array de data
           setDrivers(response.data.data || []);

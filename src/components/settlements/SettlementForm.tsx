@@ -25,7 +25,7 @@ export const SettlementForm: React.FC<SettlementFormProps> = ({ onCalculate, loa
   useEffect(() => {
     const fetchDrivers = async () => {
       try {
-        const response = await get<Driver[]>('/drivers');
+        const response = await get<Driver[]>('/drivers?limit=100');
         if (response && response.data) {
           const driversList = Array.isArray(response.data) ? response.data : (response.data as any)?.data || [];
           setDrivers(driversList.filter((d: Driver) => d.is_active));
