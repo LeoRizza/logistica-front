@@ -293,7 +293,17 @@ export const TripsPage: React.FC = () => {
                   return (
                     <tr key={trip.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-center"><button onClick={() => handleEditTrip(trip)} className="px-3 py-1 bg-blue-100 text-blue-700 font-medium rounded hover:bg-blue-200 transition-colors text-xs">Editar</button></td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{new Date(trip.scheduled_date || trip.created_at).toLocaleDateString('es-ES')}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {(() => {
+                          const dateStr = trip.scheduled_date || trip.created_at;
+                          if (!dateStr) return '-';
+                          // Toma "2026-10-30T00:00:00.000Z", lo separa por la "T" y divide el "2026-10-30" por guiones
+                          const parts = String(dateStr).split('T')[0].split('-');
+                          if (parts.length !== 3) return '-';
+                          // Devuelve DD/MM/YYYY
+                          return `${parts[2]}/${parts[1]}/${parts[0]}`;
+                        })()}
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{driver?.full_name || '-'}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{vehicle?.plate || '-'}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trip.origin || '-'}</td>
