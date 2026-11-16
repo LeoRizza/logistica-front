@@ -20,7 +20,7 @@ export const VehiclesPage: React.FC = () => {
   // Fetch vehicles callback - wrapped in useCallback to prevent infinite loops
   const fetchVehicles = useCallback(async () => {
     try {
-      const response = await get<PaginatedResponse<Vehicle>>('/vehicles');
+      const response = await get<PaginatedResponse<Vehicle>>('/vehicles?limit=100');
 
       if (response && response.data) {
         // response.data es PaginatedResponse<Vehicle>, extraemos el array de data
