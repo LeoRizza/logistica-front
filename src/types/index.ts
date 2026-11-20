@@ -148,9 +148,11 @@ export interface CreateTripRequest {
   bill_of_lading?: string | null;
   reference_number?: string | null;
   estimated_km?: number | null;
+  distance_km?: number | null;
   km_start?: number | null;
   km_end?: number | null;
   amount_to_pay?: number | null;
+  estimated_cost?: number | null;
   per_diems_delivered?: number | null;
   unforesee_expenses?: UnforeseeExpense[];
   fuelLogs?: FuelLog[];

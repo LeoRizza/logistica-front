@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Trip, Driver, Vehicle, Client, CreateTripRequest } from '../types/index';
 import { TripForm } from '../components/trips/TripForm';
 import { Modal } from '../components/common/Modal';
@@ -19,6 +19,11 @@ const checkTripCompletion = (trip: any): { isComplete: boolean; missing: string[
   return { isComplete: missing.length === 0, missing };
 };
 
+const toDateString = (value: string | Date | null | undefined): string | null => {
+  if (!value) return null;
+  return value instanceof Date ? value.toISOString().split('T')[0] : String(value).split('T')[0];
+};
+
 export const TripsPage: React.FC = () => {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
@@ -33,6 +38,11 @@ export const TripsPage: React.FC = () => {
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
   const [searchText, setSearchText] = useState<string>('');
+  const [page, setPage] = useState<number>(1);
+  const [totalPages, setTotalPages] = useState<number>(1);
+  const [totalTrips, setTotalTrips] = useState<number>(0);
+  const [debouncedSearch, setDebouncedSearch] = useState<string>('');
+  const LIMIT = 50;
 
   const { post, get, put } = useApi();
 
@@ -72,23 +82,54 @@ export const TripsPage: React.FC = () => {
   const loadTrips = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await get('/trips?limit=100');
+      const params = new URLSearchParams();
+      params.set('page', String(page));
+      params.set('limit', String(LIMIT));
+      if (selectedDriverId) params.set('driver_id', selectedDriverId);
+      if (selectedClientId) params.set('client_id', selectedClientId);
+      if (startDate) params.set('startDate', startDate);
+      if (endDate) params.set('endDate', endDate);
+      if (debouncedSearch) params.set('search', debouncedSearch);
+      const response = await get(`/trips?${params.toString()}`);
       if (response && response.data) {
-        setTrips(Array.isArray(response.data) ? response.data : response.data.data || []);
+        const payload = response.data;
+        if (Array.isArray(payload)) {
+          setTrips(payload);
+          setTotalTrips(payload.length);
+          setTotalPages(1);
+        } else {
+          setTrips(payload.data || []);
+          setTotalTrips(payload.total ?? (payload.data?.length || 0));
+          setTotalPages(Math.max(1, payload.totalPages ?? 1));
+        }
       }
     } catch (error) {
       console.error('Error loading trips:', error);
     } finally {
       setLoading(false);
     }
-  }, [get]);
+  }, [get, page, selectedDriverId, selectedClientId, startDate, endDate, debouncedSearch]);
 
   useEffect(() => {
     loadDrivers();
     loadVehicles();
     loadClients();
+  }, [loadDrivers, loadVehicles, loadClients]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchText.trim());
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [searchText]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [selectedDriverId, selectedClientId, startDate, endDate, debouncedSearch]);
+
+  useEffect(() => {
     loadTrips();
-  }, [loadDrivers, loadVehicles, loadClients, loadTrips]);
+  }, [loadTrips]);
 
   const handleSubmit = async (formData: CreateTripRequest) => {
     try {
@@ -124,37 +165,7 @@ export const TripsPage: React.FC = () => {
     setSelectedTrip(null);
   };
 
-  const filteredTrips = useMemo(() => {
-    return trips.filter((trip) => {
-      if (selectedDriverId && trip.driver_id !== selectedDriverId) return false;
-      if (selectedClientId && trip.client_id !== selectedClientId) return false;
 
-      const tripDate = (trip.scheduled_date || trip.created_at || '').split('T')[0];
-      if (startDate && tripDate < startDate) return false;
-      if (endDate && tripDate > endDate) return false;
-
-      if (searchText.trim()) {
-        const searchLower = searchText.toLowerCase();
-        const reference = (trip.reference_number || '').toLowerCase();
-        const origin = (trip.origin || '').toLowerCase();
-        const destination = (trip.destination || '').toLowerCase();
-        const ctg = ((trip as any).ctg || '').toLowerCase();
-        const driver = drivers.find((d) => d.id === trip.driver_id)?.full_name.toLowerCase() || '';
-        const vehicle = vehicles.find((v) => v.id === trip.vehicle_id)?.plate.toLowerCase() || '';
-
-        return (
-          reference.includes(searchLower) ||
-          origin.includes(searchLower) ||
-          destination.includes(searchLower) ||
-          ctg.includes(searchLower) ||
-          driver.includes(searchLower) ||
-          vehicle.includes(searchLower)
-        );
-      }
-
-      return true;
-    });
-  }, [trips, selectedDriverId, selectedClientId, startDate, endDate, searchText, drivers, vehicles]);
 
 
 
@@ -164,9 +175,10 @@ export const TripsPage: React.FC = () => {
     setStartDate('');
     setEndDate('');
     setSearchText('');
+    setPage(1);
   };
 
-  const mappedInitialData = selectedTrip
+  const mappedInitialData: Partial<CreateTripRequest> | undefined = selectedTrip
     ? {
       date: selectedTrip.scheduled_date
         ? new Date(selectedTrip.scheduled_date).toISOString().split('T')[0]
@@ -186,9 +198,9 @@ export const TripsPage: React.FC = () => {
       is_active: selectedTrip.is_active,
       origin: selectedTrip.origin ?? null,
       destination: selectedTrip.destination ?? null,
-      scheduled_date: selectedTrip.scheduled_date ?? null,
-      actual_start_date: selectedTrip.actual_start_date ?? null,
-      actual_end_date: selectedTrip.actual_end_date ?? null,
+      scheduled_date: toDateString(selectedTrip.scheduled_date),
+      actual_start_date: toDateString(selectedTrip.actual_start_date),
+      actual_end_date: toDateString(selectedTrip.actual_end_date),
       status: 'COMPLETED',
       distance_km: selectedTrip.distance_km,
       estimated_cost: selectedTrip.estimated_cost,
@@ -283,10 +295,10 @@ export const TripsPage: React.FC = () => {
             <tbody className="divide-y divide-gray-200">
               {loading ? (
                 <tr><td colSpan={10} className="px-6 py-8 text-center"><div className="inline-block"><div className="h-8 w-8 border-4 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div></div></td></tr>
-              ) : filteredTrips.length === 0 ? (
+              ) : trips.length === 0 ? (
                 <tr><td colSpan={10} className="px-6 py-8 text-center text-gray-500">No hay viajes registrados</td></tr>
               ) : (
-                filteredTrips.map((trip) => {
+                trips.map((trip) => {
                   const driver = drivers.find((d) => d.id === trip.driver_id);
                   const vehicle = vehicles.find((v) => v.id === trip.vehicle_id);
                   const { isComplete, missing: missingFields } = checkTripCompletion(trip);
@@ -332,6 +344,31 @@ export const TripsPage: React.FC = () => {
               )}
             </tbody>
           </table>
+        </div>
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-4 bg-gray-50 border-t border-gray-200">
+          <p className="text-sm text-gray-600">
+            Página <span className="font-semibold text-gray-900">{page}</span> de{' '}
+            <span className="font-semibold text-gray-900">{totalPages}</span> — Total:{' '}
+            <span className="font-semibold text-gray-900">{totalTrips}</span> viajes
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1 || loading}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Anterior
+            </button>
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages || loading}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Siguiente
+            </button>
+          </div>
         </div>
       </div>
     </div>
