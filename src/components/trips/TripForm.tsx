@@ -145,6 +145,15 @@ export const TripForm: React.FC<TripFormProps> = ({
         updatedData.scheduled_date = finalValue;
       }
 
+      // Auto-calculate distance when km_start or km_end changes
+      if (name === 'km_start' || name === 'km_end') {
+        const start = name === 'km_start' ? finalValue : updatedData.km_start;
+        const end = name === 'km_end' ? finalValue : updatedData.km_end;
+        if (start !== null && start !== undefined && end !== null && end !== undefined && end > start) {
+          updatedData.distance_km = Number((end - start).toFixed(2));
+        }
+      }
+
       return updatedData;
     });
 
@@ -217,6 +226,7 @@ export const TripForm: React.FC<TripFormProps> = ({
         ...formData,
         status: 'COMPLETED',
         scheduled_date: formData.date || formData.scheduled_date,
+        estimated_km: formData.distance_km ?? null,
       };
 
       (cleanedData as any).actual_cost = formData.amount_to_pay;

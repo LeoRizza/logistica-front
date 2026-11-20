@@ -286,7 +286,7 @@ export const TripsPage: React.FC = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">Vehículo</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">Origen</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">Destino</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">Referencia</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-600 uppercase">Distancia</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">Factura</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-600 uppercase">Ganancia Neta</th>
                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-600 uppercase">Estado</th>
@@ -320,7 +320,9 @@ export const TripsPage: React.FC = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{vehicle?.plate || '-'}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trip.origin || '-'}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trip.destination || '-'}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trip.reference_number || '-'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                        {trip.distance_km && Number(trip.distance_km) > 0 ? `${Number(trip.distance_km).toLocaleString('es-AR')} km` : '-'}
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-center">{(trip as any).invoice_number ? <span className="text-gray-800 font-medium">{(trip as any).invoice_number}</span> : <span className="text-red-700 text-xs font-medium">Sin Factura</span>}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium">
                         {(() => {
