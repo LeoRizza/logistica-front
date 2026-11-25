@@ -3,7 +3,8 @@
  * Recibo visual de liquidación que emula un comprobante físico
  */
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
+import html2canvas from 'html2canvas';
 import { SettlementData, SettlementReceipt as SettlementReceiptType } from '../../types/settlement';
 import { Button } from '../common/Button';
 import { formatCurrency } from '../../utils/dateUtils';
@@ -23,21 +24,50 @@ export const SettlementReceipt: React.FC<SettlementReceiptProps> = ({
 }) => {
   const [extraDiscounts, setExtraDiscounts] = useState<number>(0);
   const [bonifications, setBonifications] = useState<number>(0);
+  const [downloading, setDownloading] = useState<boolean>(false);
+  const receiptRef = useRef<HTMLDivElement>(null);
 
   // Calcular monto final en tiempo real
   const finalAmount = useMemo(() => {
     return settlementData.total_to_pay - extraDiscounts + bonifications;
   }, [settlementData.total_to_pay, extraDiscounts, bonifications]);
 
-  const handleSave = useCallback(() => {
-    const receipt: SettlementReceiptType = {
-      ...settlementData,
-      extra_discounts: extraDiscounts,
-      bonifications: bonifications,
-      final_amount: finalAmount,
-    };
-    onSave(receipt);
-  }, [settlementData, extraDiscounts, bonifications, finalAmount, onSave]);
+  const handleDownloadImage = useCallback(async () => {
+    if (!receiptRef.current) return;
+    try {
+      setDownloading(true);
+      const canvas = await html2canvas(receiptRef.current, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        onclone: (clonedDoc) => {
+          const inputs = clonedDoc.querySelectorAll('input[type="number"]');
+          inputs.forEach((input) => {
+            const el = input as HTMLInputElement;
+            const span = clonedDoc.createElement('span');
+            const val = parseFloat(el.value) || 0;
+            span.textContent = val.toFixed(2);
+            span.className = 'font-semibold text-gray-900';
+            el.parentNode?.replaceChild(span, el);
+          });
+        },
+      });
+      const safeDriverName = settlementData.driver_name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/gi, '-')
+        .replace(/(^-|-$)/g, '');
+      const fileName = `liquidacion-${safeDriverName}-${settlementData.start_date}_a_${settlementData.end_date}.png`;
+      const link = document.createElement('a');
+      link.download = fileName;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch (error) {
+      console.error('Error al generar la imagen del recibo:', error);
+      alert('No se pudo generar la imagen del recibo');
+    } finally {
+      setDownloading(false);
+    }
+  }, [settlementData.driver_name, settlementData.start_date, settlementData.end_date]);
 
   const handleExtraDiscountsChange = (value: string) => {
     const num = parseFloat(value) || 0;
@@ -50,7 +80,7 @@ export const SettlementReceipt: React.FC<SettlementReceiptProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-8 mb-6">
+    <div ref={receiptRef} className="bg-white rounded-lg shadow-lg p-8 mb-6">
       {/* Header del Recibo */}
       <div className="border-b-2 border-gray-800 pb-4 mb-6 text-center">
         <h2 className="text-3xl font-bold text-gray-900">RECIBO DE LIQUIDACIÓN</h2>
@@ -206,7 +236,7 @@ export const SettlementReceipt: React.FC<SettlementReceiptProps> = ({
       </div>
 
       {/* Notas y Acciones */}
-      <div className="flex flex-col-reverse md:flex-row gap-4">
+      <div className="flex flex-col-reverse md:flex-row gap-4" data-html2canvas-ignore="true">
         {/* Botones de Acción */}
         <div className="flex gap-3 w-full md:w-auto md:ml-auto">
           <Button
@@ -221,11 +251,11 @@ export const SettlementReceipt: React.FC<SettlementReceiptProps> = ({
           <Button
             type="button"
             variant="primary"
-            onClick={handleSave}
-            disabled={saving}
+            onClick={handleDownloadImage}
+            disabled={downloading || saving}
             className="flex-1 md:flex-none"
           >
-            {saving ? 'Guardando...' : 'Guardar Liquidación'}
+            {downloading ? 'Generando...' : 'Descargar Liquidación'}
           </Button>
         </div>
       </div>
